@@ -21,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,6 +60,10 @@ fun JarvisScreen(modifier: Modifier = Modifier) {
 
     val recorder = remember { AudioRecorder(context) }
     val api = remember { JarvisApi() }
+    val tts = remember { JarvisTts(context) }
+    DisposableEffect(Unit) {
+        onDispose { tts.shutdown() }
+    }
 
     var hasPermission by remember {
         mutableStateOf(
@@ -71,8 +76,9 @@ fun JarvisScreen(modifier: Modifier = Modifier) {
     ) { granted -> hasPermission = granted }
 
     var isRecording by remember { mutableStateOf(false) }
-    var isTranscribing by remember { mutableStateOf(false) }
+    var isThinking by remember { mutableStateOf(false) }
     var transcript by remember { mutableStateOf("") }
+    var reply by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
 
     Column(
@@ -93,16 +99,18 @@ fun JarvisScreen(modifier: Modifier = Modifier) {
                         error = "Recording was too short."
                         return@Button
                     }
-                    isTranscribing = true
+                    isThinking = true
                     error = null
                     scope.launch {
                         try {
-                            val text = withContext(Dispatchers.IO) { api.transcribe(file) }
-                            transcript = text
+                            val response = withContext(Dispatchers.IO) { api.command(file) }
+                            transcript = response.transcript
+                            reply = response.reply
+                            tts.speak(response.reply)
                         } catch (e: Exception) {
                             error = e.message ?: "Unknown error"
                         } finally {
-                            isTranscribing = false
+                            isThinking = false
                         }
                     }
                 } else {
@@ -116,7 +124,7 @@ fun JarvisScreen(modifier: Modifier = Modifier) {
                     }
                 }
             },
-            enabled = !isTranscribing,
+            enabled = !isThinking,
             colors = ButtonDefaults.buttonColors(
                 containerColor = if (isRecording) Color.Red else MaterialTheme.colorScheme.primary,
             ),
@@ -124,7 +132,7 @@ fun JarvisScreen(modifier: Modifier = Modifier) {
         ) {
             Text(
                 text = when {
-                    isTranscribing -> "Transcribing..."
+                    isThinking -> "Thinking..."
                     isRecording -> "Tap to Stop"
                     !hasPermission -> "Grant Mic Permission"
                     else -> "Tap to Record"
@@ -141,8 +149,15 @@ fun JarvisScreen(modifier: Modifier = Modifier) {
 
         if (transcript.isNotEmpty()) {
             Text(text = "You said:", style = MaterialTheme.typography.labelLarge)
-            Spacer(Modifier.height(8.dp))
-            Text(text = transcript, style = MaterialTheme.typography.bodyLarge)
+            Spacer(Modifier.height(4.dp))
+            Text(text = transcript, style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(16.dp))
+        }
+
+        if (reply.isNotEmpty()) {
+            Text(text = "Jarvis:", style = MaterialTheme.typography.labelLarge)
+            Spacer(Modifier.height(4.dp))
+            Text(text = reply, style = MaterialTheme.typography.bodyLarge)
         }
     }
 }

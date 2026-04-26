@@ -14,13 +14,15 @@ import java.util.concurrent.TimeUnit
 // Replace with your laptop's actual IP if it changes (different wifi, etc.).
 private const val SERVER_URL = "http://192.168.1.27:8000"
 
+data class CommandResponse(val transcript: String, val reply: String)
+
 class JarvisApi {
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
         .build()
 
-    fun transcribe(audioFile: File): String {
+    fun command(audioFile: File): CommandResponse {
         val body = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
             .addFormDataPart(
@@ -31,7 +33,7 @@ class JarvisApi {
             .build()
 
         val request = Request.Builder()
-            .url("$SERVER_URL/transcribe")
+            .url("$SERVER_URL/command")
             .post(body)
             .build()
 
@@ -40,7 +42,11 @@ class JarvisApi {
             if (!response.isSuccessful) {
                 throw IOException("HTTP ${response.code}: $payload")
             }
-            return JSONObject(payload).getString("text")
+            val json = JSONObject(payload)
+            return CommandResponse(
+                transcript = json.getString("transcript"),
+                reply = json.getString("reply"),
+            )
         }
     }
 }
