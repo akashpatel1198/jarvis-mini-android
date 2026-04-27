@@ -3,6 +3,7 @@ package com.akash.jarvismini
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -61,8 +62,12 @@ fun JarvisScreen(modifier: Modifier = Modifier) {
     val recorder = remember { AudioRecorder(context) }
     val api = remember { JarvisApi() }
     val tts = remember { JarvisTts(context) }
+    val spotify = remember { SpotifyController(context) }
     DisposableEffect(Unit) {
-        onDispose { tts.shutdown() }
+        onDispose {
+            tts.shutdown()
+            spotify.shutdown()
+        }
     }
 
     var hasPermission by remember {
@@ -107,6 +112,8 @@ fun JarvisScreen(modifier: Modifier = Modifier) {
                             transcript = response.transcript
                             reply = response.reply
                             tts.speak(response.reply)
+                            Log.d("Jarvis", "got ${response.phoneActions.size} phone actions: ${response.phoneActions}")
+                            response.phoneActions.forEach { spotify.dispatch(it) }
                         } catch (e: Exception) {
                             error = e.message ?: "Unknown error"
                         } finally {

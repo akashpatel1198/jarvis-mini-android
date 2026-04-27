@@ -14,7 +14,11 @@ import java.util.concurrent.TimeUnit
 // Replace with your laptop's actual IP if it changes (different wifi, etc.).
 private const val SERVER_URL = "http://192.168.1.27:8000"
 
-data class CommandResponse(val transcript: String, val reply: String)
+data class CommandResponse(
+    val transcript: String,
+    val reply: String,
+    val phoneActions: List<PhoneAction>,
+)
 
 class JarvisApi {
     private val client = OkHttpClient.Builder()
@@ -43,9 +47,18 @@ class JarvisApi {
                 throw IOException("HTTP ${response.code}: $payload")
             }
             val json = JSONObject(payload)
+            val actionsArray = json.optJSONArray("phone_actions")
+            val actions = buildList {
+                if (actionsArray != null) {
+                    for (i in 0 until actionsArray.length()) {
+                        add(PhoneAction.fromJson(actionsArray.getJSONObject(i)))
+                    }
+                }
+            }
             return CommandResponse(
                 transcript = json.getString("transcript"),
                 reply = json.getString("reply"),
+                phoneActions = actions,
             )
         }
     }
