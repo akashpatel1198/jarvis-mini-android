@@ -2,6 +2,7 @@ package com.akash.jarvismini
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -11,15 +12,18 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -80,6 +84,14 @@ fun JarvisScreen(modifier: Modifier = Modifier) {
         ActivityResultContracts.RequestPermission(),
     ) { granted -> hasPermission = granted }
 
+    val notifLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) JarvisService.start(context)
+    }
+
+    val serviceRunning by JarvisService.running
+
     var isRecording by remember { mutableStateOf(false) }
     var isThinking by remember { mutableStateOf(false) }
     var transcript by remember { mutableStateOf("") }
@@ -91,6 +103,34 @@ fun JarvisScreen(modifier: Modifier = Modifier) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = if (serviceRunning) "Always listening (on)" else "Always listening (off)",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Spacer(Modifier.width(12.dp))
+            Switch(
+                checked = serviceRunning,
+                onCheckedChange = { wantsOn ->
+                    if (wantsOn) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                            ContextCompat.checkSelfPermission(
+                                context, Manifest.permission.POST_NOTIFICATIONS,
+                            ) != PackageManager.PERMISSION_GRANTED
+                        ) {
+                            notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            JarvisService.start(context)
+                        }
+                    } else {
+                        JarvisService.stop(context)
+                    }
+                },
+            )
+        }
+
+        Spacer(Modifier.height(24.dp))
+
         Button(
             onClick = {
                 if (!hasPermission) {
