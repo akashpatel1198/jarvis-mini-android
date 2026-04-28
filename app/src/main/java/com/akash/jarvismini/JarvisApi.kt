@@ -10,9 +10,8 @@ import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
-// Dev: laptop's LAN IP, server running on port 8000.
-// Replace with your laptop's actual IP if it changes (different wifi, etc.).
-private const val SERVER_URL = "http://192.168.1.27:8000"
+// Set `serverUrl=http://...` in local.properties (gitignored).
+private val SERVER_URL = BuildConfig.SERVER_URL
 
 data class CommandResponse(
     val transcript: String,
